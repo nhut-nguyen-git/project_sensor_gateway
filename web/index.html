@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sensor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    canvas {
+      max-width: 100%;
+      height: 300px !important;
+    }
+    label {
+      display: inline-block;
+      margin: 5px 10px 5px 0;
+    }
+    input, select, button {
+      padding: 6px 10px;
+      margin: 5px 5px 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #latest {
+      font-weight: bold;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Sensor Temperature Dashboard</h2>
+
+    <label for="sensorSelect">Choose Sensor:</label>
+    <select id="sensorSelect" onchange="onSensorChange()"></select>
+    <br>
+
+    <label for="fromTime">From:</label>
+    <input type="datetime-local" id="fromTime" />
+    <label for="toTime">To:</label>
+    <input type="datetime-local" id="toTime" />
+    <button onclick="updateChart()">Load Range</button>
+    <button onclick="loadCurrent()">Show Latest</button>
+    <br>
+
+    <label for="intervalInput">Update Interval (sec):</label>
+    <input type="number" id="intervalInput" value="5" min="1" />
+    <button onclick="updateNow()">Update Now</button>
+    <button onclick="toggleAutoUpdate()" id="toggleBtn">Stop Auto-Update</button>
+    <br>
+
+    <div id="latest"></div>
+    <canvas id="sensorChart"></canvas>
+
+    <br>
+    <button onclick="playAnimation()">Play Animation</button>
+    <button onclick="pauseAnimation()">Pause</button>
+    <button onclick="resetAnimation()">Reset</button>
+    <label for="speedSlider">Speed:</label>
+    <input type="range" id="speedSlider" min="100" max="2000" step="100" value="1000" />
+  </div>
+
+  <script>
+    const apiBase = `${location.protocol}//${location.hostname}:5000`;
+    let chart, autoUpdate = true, updateTimer, currentSensorId = null, fullData = [], animationTimer, animationIndex = 0;
+
+    async function fetchSensors() {
+      const res = await fetch(`${apiBase}/sensors`);
+      const sensors = await res.json();
+      const select = document.getElementById("sensorSelect");
+      select.innerHTML = "";
+      sensors.forEach(id => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.text = `Sensor ${id}`;
+        select.appendChild(opt);
+      });
+      currentSensorId = sensors[0];
+      select.value = currentSensorId;
+      updateChart();
+      startAutoUpdate();
+    }
+
+    function onSensorChange() {
+      currentSensorId = document.getElementById("sensorSelect").value;
+      updateChart();
+    }
+
+    async function updateChart() {
+      if (!currentSensorId) return;
+      let url = `${apiBase}/sensor/${currentSensorId}/history`;
+      const from = document.getElementById("fromTime").value;
+      const to = document.getElementById("toTime").value;
+      if (from && to) {
+        url += `?from=${Math.floor(new Date(from).getTime() / 1000)}&to=${Math.floor(new Date(to).getTime() / 1000)}`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      fullData = data;
+      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+      const values = data.map(d => d.value);
+      if (!chart) {
+        const ctx = document.getElementById("sensorChart").getContext("2d");
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets: [{ label: `Sensor ${currentSensorId} Temp (Celsius)`, data: values, borderColor: 'blue' }] },
+          options: { responsive: true, scales: { y: { beginAtZero: false } } }
+        });
+      } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.data.datasets[0].label = `Sensor ${currentSensorId} Temp (Celsius)`;
+        chart.update();
+      }
+      updateLatest();
+    }
+
+    function loadCurrent() {
+      document.getElementById("fromTime").value = "";
+      document.getElementById("toTime").value = "";
+      updateChart();
+    }
+
+    async function updateLatest() {
+      const res = await fetch(`${apiBase}/sensor/${currentSensorId}/latest`);
+      const { sensor_value, timestamp } = await res.json();
+      document.getElementById("latest").textContent = `Temperature: ${sensor_value} Celsius, Last update: ${new Date(timestamp * 1000).toLocaleTimeString()}`;
+    }
+
+    function toggleAutoUpdate() {
+      autoUpdate = !autoUpdate;
+      document.getElementById("toggleBtn").innerText = autoUpdate ? "Stop Auto-Update" : "Start Auto-Update";
+      if (autoUpdate) startAutoUpdate();
+      else clearInterval(updateTimer);
+    }
+
+    function startAutoUpdate() {
+      clearInterval(updateTimer);
+      const interval = parseInt(document.getElementById("intervalInput").value) * 1000;
+      updateTimer = setInterval(updateChart, interval);
+    }
+
+    function updateNow() {
+      updateChart();
+      autoUpdate = true;
+      document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
+      startAutoUpdate();
+    }
+
+    function playAnimation() {
+      if (!fullData.length) return;
+      clearInterval(animationTimer);
+      animationIndex = 0;
+      const speed = parseInt(document.getElementById("speedSlider").value);
+      animationTimer = setInterval(() => {
+        const slice = fullData.slice(0, animationIndex + 1);
+        chart.data.labels = slice.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+        chart.data.datasets[0].data = slice.map(d => d.value);
+        chart.update();
+        animationIndex++;
+        if (animationIndex >= fullData.length) clearInterval(animationTimer);
+      }, speed);
+    }
+
+    function pauseAnimation() { clearInterval(animationTimer); }
+    function resetAnimation() {
+      pauseAnimation();
+      animationIndex = 0;
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+      chart.update();
+    }
+
+    fetchSensors();
+  </script>
+</body>
+</html>
