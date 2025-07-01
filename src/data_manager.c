@@ -7,6 +7,7 @@
 #include "sensor_buffer.h"
 #include "dplist.h"
 #include "data_manager.h"
+#include "logger.h"
 
 // definition of error codes
 #define DPLIST_NO_ERROR 0
@@ -14,16 +15,12 @@
 #define DPLIST_INVALID_ERROR 2 //error due to a list operation applied on a NULL list 
 #define ERROR_NULL_POINTER 3
 
-// used in log_event
-typedef enum {
-    COLD, HOT, ERROR
-} DATAMGR_CASE;
 
 // global variables
 static dplist_t* sensor_list;
 
 // helper methods
-static void log_event(sensor_id_t id, sensor_value_t temp, DATAMGR_CASE check);
+
 void datamgr_read_sensor_map(FILE* fp_sensor_map);
 void datamgr_add_sensor_data(sensor_data_t* new_data);
 
@@ -190,8 +187,13 @@ void datamgr_add_sensor_data(sensor_data_t* new_data){
         sns->running_avg = (avg / RUN_AVG_LENGTH);
 
         // log in case it is an extreme
-        if(sns->running_avg > SET_MAX_TEMP) log_event(sns->sensor_id, sns->running_avg, HOT);
-        if(sns->running_avg < SET_MIN_TEMP) log_event(sns->sensor_id, sns->running_avg, COLD);
+        if(sns->running_avg > SET_MAX_TEMP){ 
+          log_message(LOG_WARNING, "DataMgr/Thread-1", "SENSOR ID: %d TOO HOT! (AVG_TEMP = %f)\n", sns->sensor_id, sns->running_avg);
+        }
+        if(sns->running_avg < SET_MIN_TEMP){
+          log_message(LOG_WARNING, "DataMgr/Thread-1", "SENSOR ID: %d TOO COOL! (AVG_TEMP = %f)\n", sns->sensor_id, sns->running_avg);
+        } 
+        
 #ifdef DEBUG
         printf(GREEN_CLR "DATAMGR: ID: %u ROOM: %d  AVG: %f   TIME: %ld\n" OFF_CLR,
                 sns->sensor_id, sns->room_id, sns->running_avg, sns->last_modified);
@@ -264,16 +266,3 @@ int sensor_compare(void* x, void* y){
     else return -1;
 }
 
-// log event
-static void log_event(sensor_id_t id, sensor_value_t temp, DATAMGR_CASE check){
-    FILE* fp_log = fopen("gateway.log", "a");
-    switch(check){
-    case COLD:
-        fprintf(fp_log, "\nSEQ_NR: %d  TIME: %ld\nSENSOR ID: %d TOO HOT! (AVG_TEMP = %f)\n", COLD, time(NULL), id, temp);
-    case HOT:
-        fprintf(fp_log, "\nSEQ_NR: %d  TIME: %ld\nSENSOR ID: %d TOO HOT! (AVG_TEMP = %f)\n", HOT, time(NULL), id, temp);
-    case ERROR:
-        fprintf(fp_log, "\nSEQ_NR: %d  TIME: %ld\nSENSOR DATA FROM INVALID SENSOR ID: %d\n", ERROR, time(NULL), id);
-    }
-    fclose(fp_log);
-}

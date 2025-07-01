@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "logger.h"
 
 typedef struct pollfd pollfd_t;
 
@@ -29,7 +30,6 @@ void element_free(void** element);
 int element_compare(void* x, void* y);
 
 // helper functions
-static void log_event(char* log_event, int sensor_id);
 int connmgr_add_sensor(poll_info_t** poll_at_index, int* list_size);
 int connmgr_add_sensor_data(sbuffer_t** buffer, poll_info_t** poll_at_index, sensor_data_t* sensor_data);
 void connmgr_remove_sensor(int* list_size, int index, poll_info_t** poll_at_index, poll_info_t* poll_server);
@@ -180,7 +180,9 @@ void connmgr_close_connection(int port_number, poll_info_t** poll_at_index, poll
         (*poll_at_index)->socket_id = NULL;
     }
     
-	log_event("CLOSED CONNECTION MANAGER: ", port_number);
+
+  log_message(LOG_LEVEL_INFO, "ConnMgr/Thread-1", "CLOSED CONNECTION MANAGER : %d", port_number);
+  
 	    if (poll_server->socket_id != NULL) {
         tcp_close(&(poll_server->socket_id));
         poll_server->socket_id = NULL;
@@ -195,7 +197,10 @@ void connmgr_remove_sensor(int* list_size, int index, poll_info_t** poll_at_inde
 	printf(PURPLE_CLR "CLOSED CONNECTION SENSOR ID: %d\n"OFF_CLR, (*poll_at_index)->sensor_id);
 #endif
 	// remove the sensor
-	log_event("CLOSED CONNECTION SENSOR ID:", (*poll_at_index)->sensor_id);
+	
+ 
+ log_message(LOG_LEVEL_INFO, "ConnMgr/Thread-1", "CLOSED CONNECTION SENSOR ID: %d", (*poll_at_index)->sensor_id);
+ 
 	    if (poll_server->socket_id != NULL) {
         tcp_close(&(poll_server->socket_id));
         poll_server->socket_id = NULL;
@@ -259,12 +264,15 @@ int connmgr_add_sensor_data(sbuffer_t** buffer, poll_info_t** poll_at_index, sen
 #ifdef DEBUG
 	printf(PURPLE_CLR "CONNMGR: NEW DATA RECEIVED.\n" OFF_CLR);
 #endif
-	// update the ID and log_event if this is the first data from this sensor
+	// update the ID and log event if this is the first data from this sensor
 	if((*poll_at_index)->sensor_id != sensor_data->id){
 
 		// update the sensor ID and log the event
 		(*poll_at_index)->sensor_id = sensor_data->id;
-		log_event("NEW CONNECTION SENSOR ID:", (*poll_at_index)->sensor_id);
+   //write log 
+   log_message(LOG_LEVEL_INFO, "ConnMgr/Thread-1", "NEW CONNECTION SENSOR ID: %d", (*poll_at_index)->sensor_id);
+   
+   
 #ifdef DEBUG
 		printf(PURPLE_CLR "NEW CONNECTION SENSOR ID: %d\n"OFF_CLR, (*poll_at_index)->sensor_id);
 #endif
@@ -349,11 +357,3 @@ int element_compare(void* x, void* y){
 	return (x_id == y_id) ? 0 : ((x_id > y_id) ? 1 : -1);
 }
 
-
-// log event
-static void log_event(char* log_event, int sensor_id){
-	// open gateway in append mode
-	FILE* fp_log = fopen("gateway.log", "a");
-	fprintf(fp_log, "\nSEQ_NR: 2  TIME: %ld\n%s %d\n", time(NULL), log_event, sensor_id);
-	fclose(fp_log);
-}

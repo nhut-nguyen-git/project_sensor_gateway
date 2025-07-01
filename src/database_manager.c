@@ -4,13 +4,14 @@
 #include "config.h"
 #include <sqlite3.h>
 #include "database_manager.h"
+#include "logger.h"
 
 #define QUOTE(str) #str
 #define EXPAND_AND_QUOTE(str) QUOTE(str)
 #define DB_NAME_STRING EXPAND_AND_QUOTE(DB_NAME)
 #define TABLE_NAME_STRING EXPAND_AND_QUOTE(TABLE_NAME)
 
-void log_event(char* log_event);
+
 int sql_query(DBCONN* conn, callback_t f, char* sql);
 void sensor_close_threads();
 
@@ -54,7 +55,8 @@ DBCONN* init_connection(char clear_up_flag){
     if(sqlite3_open(DB_NAME_STRING, &db) != SQLITE_OK){ //if database can't open
         fprintf(stderr, "CANNOT OPEN DATABASE: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
-        log_event("UNABLE TO CONNECT TO SQL SERVER.");
+        log_message(LOG_ERROR, "StorageMgr", "UNABLE TO CONNECT TO SQL SERVER. \n");
+        
 #ifdef DEBUG
         printf(BLUE_CLR "DB: CANNOT OPEN DATABASE.\n DB: UNABLE TO CONNECT TO SQL SERVER.\n" OFF_CLR);
 #endif
@@ -65,7 +67,7 @@ DBCONN* init_connection(char clear_up_flag){
     if(clear_up_flag){
         char* sql = sqlite3_mprintf("DROP TABLE IF EXISTS %s", TABLE_NAME_STRING);
         if(sql_query(db, 0, sql) == -1){
-        log_event("ERROR DROPPING OLD TABLE");
+        log_message(LOG_ERROR, "StorageMgr", "ERROR DROPPING OLD TABLE \n");
         sqlite3_close(db);
             return NULL;
             }
@@ -78,13 +80,13 @@ DBCONN* init_connection(char clear_up_flag){
         "`timestamp` TIMESTAMP NULL)", TABLE_NAME_STRING);
 
     if(sql_query(db, 0, sql) == -1){
-    log_event("ERROR CREATING TABLE");
+    log_message(LOG_ERROR, "StorageMgr", "ERROR CREATING TABLE\n");
     sqlite3_close(db);
         return NULL;
 }
-    log_event("ESTABLISHED SQL SERVER CONNECTION.");
+    log_message(LOG_LEVEL_INFO, "StorageMgr", "ESTABLISHED SQL SERVER CONNECTION.\n");
     sql = sqlite3_mprintf("NEW TABLE %s CREATED.", DB_NAME_STRING);
-    log_event(sql);
+    log_message(LOG_LEVEL_INFO, "StorageMgr", "%s \n", sql);
 
 #ifdef DEBUG
     printf(BLUE_CLR "DB: ESTABLISHED SQL SERVER CONNECTION.\n%s\n"OFF_CLR, sql);
@@ -128,8 +130,8 @@ int sensor_db_listen(DBCONN* conn, sbuffer_t** buffer){
         // insert the sensor in the database
         if(insert_sensor(conn, new_data.id, new_data.value, new_data.ts) != 0){
             
-            log_event("INSERT SENSOR ERROR - SKIPPED DATA");
-    continue; 
+            log_message(LOG_ERROR, "StorageMgr", "INSERT SENSOR ERROR - SKIPPED DATA \n");
+        continue; 
 }
 #ifdef DEBUG
             printf(BLUE_CLR "DB: GOT DATA. %ld\n" OFF_CLR, time(NULL));
@@ -190,13 +192,6 @@ int find_sensor_after_timestamp(DBCONN* conn, sensor_ts_t ts, callback_t f){
 }
 
 
-// helper methods 
-void log_event(char* log_event){
-    FILE* fp_log = fopen("gateway.log", "a");
-    fprintf(fp_log, "\nSEQ_NR: 1   TIME: %ld\n%s\n", time(NULL), log_event);
-    fclose(fp_log);
-}
-
 int sql_query(DBCONN* conn, callback_t f, char* sql){
     char* err_msg = 0;
     if(sqlite3_exec(conn, sql, f, 0, &err_msg) != SQLITE_OK){
@@ -204,7 +199,7 @@ int sql_query(DBCONN* conn, callback_t f, char* sql){
         sqlite3_free(err_msg);
         sqlite3_free(sql);
         sqlite3_close(conn);
-        log_event("CONNECTION TO SQL SERVER LOST.");
+        log_message(LOG_ERROR, "StorageMgr", "CONNECTION TO SQL SERVER LOST.\n");
 #ifdef DEBUG
         printf(BLUE_CLR "DB: CONNECTION TO SQL SERVER LOST.\n" OFF_CLR);
 #endif

@@ -22,6 +22,7 @@
 #include "database_manager.h"
 #include "tcpsock.h"
 #include "dplist.h"
+#include "logger.h"
 
 #define MAIN_PROCESS_THREAD_NR 3
 // define as 1 to drop existing table, 0 to keep existing table
@@ -91,7 +92,9 @@ int main(int argc, char* argv[]){
         printf("sigaction");
         exit(EXIT_FAILURE);
     }
-    
+    //init logger file
+        logger_init("gateway.log");
+        log_message(LOG_LEVEL_INFO, "GatewayMain", "Sensor Gateway started on port %d", port_number);
     // initialize the buffer
     if (sbuffer_init(&buffer) != SBUFFER_SUCCESS) {
         printf("[ERROR] Could not initialize shared buffer\n");
@@ -139,12 +142,10 @@ int main(int argc, char* argv[]){
     pthread_rwlock_destroy(&connmgr_lock);    
     pthread_mutex_destroy(&fifo_mutex);
 
-
-
-
+    log_message(LOG_LEVEL_INFO, "GatewayMain", "CLOSING SENSOR GATEWAY");
     cleanup_and_exit();
 
-
+    
 #ifdef DEBUG
     printf("CLOSING SENSOR GATEWAY\n");
 #endif
@@ -225,6 +226,7 @@ void cleanup_and_exit() {
     free(data_mgr);
     free(data_sensor_db);
     free(connmgr_working);
+    logger_close();
     if (buffer != NULL) {
         sbuffer_free(&buffer);
     }
@@ -236,6 +238,7 @@ void handle_signal(int sig, siginfo_t *siginfo, void *context) {
     (void)context;
     if (sig == SIGINT || sig == SIGTERM) {
         stop_requested = true;
+        log_message(LOG_LEVEL_INFO, "GatewayMain","Signal %d received. Stopping gracefully...\n", sig);
         printf("\n[INFO] Signal %d received. Stopping gracefully...\n", sig);
         for (int i = 0; i < MAIN_PROCESS_THREAD_NR; i++) {
           pthread_cancel(threads[i]);  

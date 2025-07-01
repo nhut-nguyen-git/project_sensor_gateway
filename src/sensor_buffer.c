@@ -26,10 +26,6 @@ struct sbuffer {
 // helper methods
 int sbuffer_read(sbuffer_node_t* buffer_node, sensor_data_t* data,READ_TH_ENUM thread);
 
-#ifdef DEBUG
-void sbuffer_print_tree(sbuffer_node_t *node);
-#endif
-
 int sbuffer_init(sbuffer_t** buffer){
     *buffer = malloc(sizeof(sbuffer_t));
     if(*buffer == NULL) return SBUFFER_FAILURE;
@@ -147,37 +143,3 @@ int sbuffer_insert(sbuffer_t* buffer, sensor_data_t* data){
     return SBUFFER_SUCCESS;
 }
 
-#ifdef DEBUG
-void sbuffer_print_tree(sbuffer_node_t* node){
-    if(node == NULL) return;
-
-    time_t timestamp = node->data.ts;  // Unix timestamp
-    char time_str[9];               // buffer for the human-readable time string
-    struct tm *timeinfo = localtime(&timestamp);
-    strftime(time_str, sizeof(time_str), "%T", timeinfo);
-
-    printf(YELLOW_CLR);
-    printf("+-------------------------+\n");
-    printf("    node: %p\t\n", node);
-
-    printf("|+-----------------------+|\n");
-    printf("||  id:        %u        ||\n", node->data.id);
-    printf("||  value:     %.2f     ||\n", node->data.value);
-    printf("||  timestamp: %s  ||\n", time_str);
-    printf("||  reader threads: ");
-    for(int i = 0; i < THREAD_NR; i++){
-        printf("%d ", node->reader_threads[i]);
-    }
-    printf(" ||\n");
-    printf("|+-----------------------+|\n");
-    printf("    next:      %p\t\n", node->next);
-    printf("+-------------------------+\n");
-    if(node->next != NULL){
-        printf("|                         |\n");
-        printf("v                         v\n");
-    }
-    printf(OFF_CLR);
-
-    sbuffer_print_tree(node->next);
-}
-#endif
