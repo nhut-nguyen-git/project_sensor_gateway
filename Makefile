@@ -54,10 +54,8 @@ $(BUILD_DIR)/%.o: $(LIB_DIR)/%.c
 
 # Convenience targets
 run: $(GATEWAY_EXE)
-	./bin/sensor_gateway 12345 & \
-	sleep 1 && python3 API/app.py & \
-	sleep 1 && ./$(NODE_EXE) 15 2 127.0.0.1 12345
-	sleep 1 && ./$(NODE_EXE) 21 2 127.0.0.1 12345
+	./bin/sensor_gateway 12345
+
 node1: $(NODE_EXE)
 	./$(NODE_EXE) 15 2 127.0.0.1 12345
 

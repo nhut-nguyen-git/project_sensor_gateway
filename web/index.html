@@ -48,10 +48,38 @@
       font-weight: bold;
       margin: 10px 0;
     }
+    
+    .navbar {
+  background-color: #007bff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.navbar a {
+  color: white;
+  margin-right: 20px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.navbar a:hover {
+  text-decoration: underline;
+}
+
   </style>
 </head>
 <body>
   <div class="container">
+
+      <div class="navbar">
+      <a href="index.html">Dashboard</a>
+      <a href="admin.html">Advanced Config</a>
+    </div>
+  
     <h2>Sensor Temperature Dashboard</h2>
 
     <label for="sensorSelect">Choose Sensor:</label>
@@ -81,6 +109,9 @@
     <button onclick="resetAnimation()">Reset</button>
     <label for="speedSlider">Speed:</label>
     <input type="range" id="speedSlider" min="100" max="2000" step="100" value="1000" />
+    
+
+  
   </div>
 
   <script>
@@ -139,11 +170,21 @@
       updateLatest();
     }
 
-    function loadCurrent() {
-      document.getElementById("fromTime").value = "";
-      document.getElementById("toTime").value = "";
-      updateChart();
-    }
+function loadCurrent() {
+  const now = new Date();
+  const offsetMs = 7 * 60 * 60 * 1000; // +7 gi?
+
+  const nowLocal = new Date(now.getTime() + offsetMs);
+  const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000) + offsetMs);
+
+  const fromDate = oneHourAgo.toISOString().slice(0, 16);
+  const toDate = nowLocal.toISOString().slice(0, 16);
+
+  document.getElementById("fromTime").value = fromDate;
+  document.getElementById("toTime").value = toDate;
+
+  updateChart();
+}
 
     async function updateLatest() {
       const res = await fetch(`${apiBase}/sensor/${currentSensorId}/latest`);

@@ -4,82 +4,119 @@ from flask_cors import CORS
 import sqlite3
 import os
 import time
+import subprocess
 
-app = Flask(__name__, static_folder='../web', static_url_path='')
-CORS(app)  # Allow access from other devices
+# Xác d?nh các du?ng d?n tuong d?i d?n web, database và log
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+WEB_DIR = os.path.join(BASE_DIR, "web")
+DB_FILE = os.path.join(BASE_DIR, "Sensor.db")
+LOG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '../gateway.log'))
 
-DB_FILE = 'Sensor.db'
+app = Flask(__name__, static_folder=WEB_DIR, static_url_path='')
+CORS(app)
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 @app.route('/')
 def index():
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(WEB_DIR, 'index.html')
 
+
+@app.route('/admin')
+def admin():
+    return send_from_directory(WEB_DIR, 'admin.html')
+
+# API: get list sensor
 @app.route('/sensors')
-def sensors():
-    conn = get_db_connection()
+def get_sensors():
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT sensor_id FROM SensorData")
-    ids = [row['sensor_id'] for row in cur.fetchall()]
+    data = [row[0] for row in cur.fetchall()]
     conn.close()
-    return jsonify(ids)
+    return jsonify(data)
 
+# API: GET Data last
 @app.route('/sensor/<int:sensor_id>/latest')
 def latest(sensor_id):
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
         SELECT sensor_value, timestamp FROM SensorData
-        WHERE sensor_id = ? ORDER BY timestamp DESC LIMIT 1
+        WHERE sensor_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
     """, (sensor_id,))
     row = cur.fetchone()
     conn.close()
     if row:
-        return jsonify({"sensor_value": row['sensor_value'], "timestamp": row['timestamp']})
+      return jsonify({"sensor_value": row[0],"timestamp": row[1]})
     return jsonify({})
+    
+    
 
+# API: get data in range
 @app.route('/sensor/<int:sensor_id>/history')
 def history(sensor_id):
     try:
-        from_ts = request.args.get('from')
-        to_ts = request.args.get('to')
-        if from_ts and to_ts:
-            from_ts = int(from_ts)
-            to_ts = int(to_ts)
-        else:
-            to_ts = int(time.time())
-            from_ts = to_ts - 60 * 10  # default: last 10 minutes
+        from_ts = int(request.args.get('from', 0))
+        to_ts = int(request.args.get('to', int(time.time())))
     except:
         return jsonify([])
 
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
-        SELECT sensor_value AS value, timestamp FROM SensorData
-        WHERE sensor_id = ? AND timestamp BETWEEN ? AND ?
+        SELECT sensor_value AS value, timestamp 
+        FROM SensorData 
+        WHERE sensor_id = ? AND timestamp BETWEEN ? AND ? 
         ORDER BY timestamp ASC
     """, (sensor_id, from_ts, to_ts))
     rows = cur.fetchall()
     conn.close()
-    return jsonify([dict(row) for row in rows])
+    return jsonify([{"value": row[0], "timestamp": row[1]} for row in rows])
 
+# API: 
 @app.route('/sensor/<int:sensor_id>/range')
 def time_range(sensor_id):
-    conn = get_db_connection()
+    conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
-        SELECT MIN(timestamp) as start_ts, MAX(timestamp) as end_ts FROM SensorData
+        SELECT MIN(timestamp), MAX(timestamp) 
+        FROM SensorData 
         WHERE sensor_id = ?
     """, (sensor_id,))
     row = cur.fetchone()
     conn.close()
-    if row['start_ts'] is not None and row['end_ts'] is not None:
-        return jsonify({"start": row['start_ts'], "end": row['end_ts']})
+    if row and row[0] is not None:
+        return jsonify({"start": row[0], "end": row[1]})
     return jsonify({})
+
+
+@app.route('/log')
+def view_log():
+    try:
+        with open(LOG_FILE, 'r') as f:
+            content = f.read()
+        return jsonify({"log": content})
+    except Exception as e:
+        print("LOG READ ERROR:", str(e))  # In l?i rõ ràng ra console
+        return jsonify({"error": f"Could not read log file: {str(e)}"})
+
+
+@app.route('/run-node', methods=['POST'])
+def run_node():
+    try:
+        data = request.json
+        sensor_id = data.get('sensor_id')
+        sleep_time = data.get('sleep_time', 2)
+        port = data.get('port', 12345)
+        ip = data.get('ip', '127.0.0.1')
+        node_exe = os.path.join(BASE_DIR, 'bin', 'sensor_node')
+        subprocess.Popen([node_exe, str(sensor_id), str(sleep_time), ip, str(port)])
+        return jsonify({"status": "started"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)
