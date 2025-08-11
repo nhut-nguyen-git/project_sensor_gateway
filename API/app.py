@@ -117,6 +117,50 @@ def run_node():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+SENSOR_MAP_FILE = os.path.join(BASE_DIR, 'room_sensor.map')
+TYPE_MAP_FILE = os.path.join(BASE_DIR, 'type.map')
+
+def load_sensor_room_type_map():
+    room_map = {}
+    type_map = {}
+    combined = {}
+
+    if os.path.exists(SENSOR_MAP_FILE):
+        with open(SENSOR_MAP_FILE) as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) != 2:
+                    continue
+                room_id, sensor_id = int(parts[0]), int(parts[1])
+                room_map[sensor_id] = room_id
+
+    if os.path.exists(TYPE_MAP_FILE):
+        with open(TYPE_MAP_FILE) as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) != 2:
+                    continue
+                sensor_id, sensor_type = int(parts[0]), parts[1]
+                type_map[sensor_id] = sensor_type
+
+    for sensor_id in set(room_map.keys()) & set(type_map.keys()):
+        combined[sensor_id] = {
+            'room_id': room_map[sensor_id],
+            'type': type_map[sensor_id]
+        }
+    return combined
+
+@app.route('/room-sensors-map')
+def room_sensors_map():
+    mapping = load_sensor_room_type_map()
+    return jsonify(mapping)
+
+@app.route('/rooms')
+def rooms():
+    mapping = load_sensor_room_type_map()
+    rooms = sorted(set([info['room_id'] for info in mapping.values()]))
+    return jsonify(rooms)
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=5000)

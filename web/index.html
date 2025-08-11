@@ -82,8 +82,8 @@
   
     <h2>Sensor Temperature Dashboard</h2>
 
-    <label for="sensorSelect">Choose Sensor:</label>
-    <select id="sensorSelect" onchange="onSensorChange()"></select>
+    <label for="roomSelect">Chọn Phòng:</label>
+    <select id="roomSelect" onchange="onRoomChange()"></select>
     <br>
 
     <label for="fromTime">From:</label>
@@ -101,7 +101,7 @@
     <br>
 
     <div id="latest"></div>
-    <canvas id="sensorChart"></canvas>
+    <div id="sensorCharts"></div>
 
     <br>
     <button onclick="playAnimation()">Play Animation</button>
@@ -115,75 +115,124 @@
   </div>
 
   <script>
+    let sensorMapping = {}; // sensor_id => { room_id, type }
+    let roomToSensors = {}; // room_id => [{sensor_id, type}]
     const apiBase = `${location.protocol}//${location.hostname}:5000`;
     let chart, autoUpdate = true, updateTimer, currentSensorId = null, fullData = [], animationTimer, animationIndex = 0;
+    let currentRoomId = null;
+    let currentSensors = [];
+    let activeCharts = {}; // sensorId => Chart instance
+    let updateInterval = null;
 
-    async function fetchSensors() {
-      const res = await fetch(`${apiBase}/sensors`);
-      const sensors = await res.json();
-      const select = document.getElementById("sensorSelect");
-      select.innerHTML = "";
-      sensors.forEach(id => {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.text = `Sensor ${id}`;
-        select.appendChild(opt);
-      });
-      currentSensorId = sensors[0];
-      select.value = currentSensorId;
-      updateChart();
-      startAutoUpdate();
-    }
+
+
+    async function fetchRoomSensorMappings() {
+  const mapRes = await fetch(`${apiBase}/room-sensors-map`);
+  sensorMapping = await mapRes.json();
+
+  roomToSensors = {};
+  for (const [sid, info] of Object.entries(sensorMapping)) {
+    const room = info.room_id;
+    if (!roomToSensors[room]) roomToSensors[room] = [];
+    roomToSensors[room].push({ sensor_id: sid, type: info.type });
+  }
+
+  const roomRes = await fetch(`${apiBase}/rooms`);
+  const rooms = await roomRes.json();
+  const select = document.getElementById("roomSelect");
+  select.innerHTML = "";
+  rooms.forEach(r => {
+    const opt = document.createElement("option");
+    opt.value = r;
+    opt.text = `Phòng ${r}`;
+    select.appendChild(opt);
+  });
+  onRoomChange();
+  }
 
     function onSensorChange() {
       currentSensorId = document.getElementById("sensorSelect").value;
       updateChart();
     }
 
-    async function updateChart() {
-      if (!currentSensorId) return;
-      let url = `${apiBase}/sensor/${currentSensorId}/history`;
-      const from = document.getElementById("fromTime").value;
-      const to = document.getElementById("toTime").value;
-      if (from && to) {
-        url += `?from=${Math.floor(new Date(from).getTime() / 1000)}&to=${Math.floor(new Date(to).getTime() / 1000)}`;
-      }
+async function updateChart() {
+  if (!currentSensors || currentSensors.length === 0) return;
 
-      const res = await fetch(url);
-      const data = await res.json();
-      fullData = data;
-      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-      const values = data.map(d => d.value);
-      if (!chart) {
-        const ctx = document.getElementById("sensorChart").getContext("2d");
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: { labels, datasets: [{ label: `Sensor ${currentSensorId} Temp (Celsius)`, data: values, borderColor: 'blue' }] },
-          options: { responsive: true, scales: { y: { beginAtZero: false } } }
-        });
-      } else {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.data.datasets[0].label = `Sensor ${currentSensorId} Temp (Celsius)`;
-        chart.update();
-      }
-      updateLatest();
+  const from = document.getElementById("fromTime").value;
+  const to = document.getElementById("toTime").value;
+
+  for (const sensor of currentSensors) {
+    const sensorId = sensor.sensor_id;
+    let url = `${apiBase}/sensor/${sensorId}/history`;
+
+    if (from && to) {
+      url += `?from=${Math.floor(new Date(from).getTime() / 1000)}&to=${Math.floor(new Date(to).getTime() / 1000)}`;
     }
 
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+      const values = data.map(d => d.value);
+
+      const chart = activeCharts[sensorId];
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+      }
+    } catch (err) {
+      console.error(`UpdateChart error sensor ${sensorId}:`, err);
+    }
+  }
+}
+
+async function showLast() {
+  if (!currentSensors || currentSensors.length === 0) return;
+
+  const now = Math.floor(Date.now() / 1000);
+  const fromTime = now - 15 * 60;
+
+  for (const sensor of currentSensors) {
+    const sensorId = sensor.sensor_id;
+
+    try {
+      const res = await fetch(`${apiBase}/sensor/${sensorId}/range?from=${fromTime}&to=${now}`);
+      const data = await res.json();
+
+      if (!Array.isArray(data) || data.length === 0) continue;
+
+      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+      const values = data.map(d => d.value);
+
+      const chart = activeCharts[sensorId];
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+      }
+    } catch (err) {
+      console.error(`Error loading 15-minute data for sensor ${sensorId}:`, err);
+    }
+  }
+}
+
 function loadCurrent() {
-  const now = new Date();
-  const offsetMs = 7 * 60 * 60 * 1000; // +7 gi?
+  // 1. Gọi ngay 1 lần để hiển thị dữ liệu 15 phút gần nhất
+  showLast();
 
-  const nowLocal = new Date(now.getTime() + offsetMs);
-  const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000) + offsetMs);
+  // 2. Dừng mọi auto-update cũ nếu có
+  clearInterval(updateTimer);
 
-  const fromDate = oneHourAgo.toISOString().slice(0, 16);
-  const toDate = nowLocal.toISOString().slice(0, 16);
+  // 3. Lấy giá trị interval từ input (giây → mili giây)
+  const interval = parseInt(document.getElementById("intervalInput")?.value || "5") * 1000;
 
-  document.getElementById("fromTime").value = fromDate;
-  document.getElementById("toTime").value = toDate;
+  // 4. Lặp lại showLast sau mỗi interval
+  updateTimer = setInterval(showLast, interval);
 
-  updateChart();
+  // 5. Cập nhật trạng thái và giao diện
+  autoUpdate = true;
+  document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
 }
 
     async function updateLatest() {
@@ -196,21 +245,21 @@ function loadCurrent() {
       autoUpdate = !autoUpdate;
       document.getElementById("toggleBtn").innerText = autoUpdate ? "Stop Auto-Update" : "Start Auto-Update";
       if (autoUpdate) startAutoUpdate();
-      else clearInterval(updateTimer);
+      else clearInterval(updateInterval);
     }
 
-    function startAutoUpdate() {
-      clearInterval(updateTimer);
-      const interval = parseInt(document.getElementById("intervalInput").value) * 1000;
-      updateTimer = setInterval(updateChart, interval);
-    }
+function startAutoUpdate() {
+  clearInterval(updateTimer);
+  const interval = parseInt(document.getElementById("intervalInput").value) * 1000;
+  updateTimer = setInterval(updateChart, interval);
+}
 
-    function updateNow() {
-      updateChart();
-      autoUpdate = true;
-      document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
-      startAutoUpdate();
-    }
+function updateNow() {
+  updateChart();
+  autoUpdate = true;
+  document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
+  startAutoUpdate();
+}
 
     function playAnimation() {
       if (!fullData.length) return;
@@ -236,7 +285,86 @@ function loadCurrent() {
       chart.update();
     }
 
-    fetchSensors();
+    function onRoomChange() {
+  const roomId = document.getElementById("roomSelect").value;
+  const sensors = roomToSensors[roomId];
+  if (!sensors || sensors.length === 0) return;
+  drawChartsForRoom(roomId, sensors);
+}
+
+async function drawChartsForRoom(roomId, sensors) {
+  const container = document.getElementById("sensorCharts");
+  container.innerHTML = ""; // clear old charts
+
+  currentRoomId = roomId;
+  currentSensors = sensors;
+  activeCharts = {};
+  if (updateInterval) clearInterval(updateInterval);
+
+  const types = ["temperature", "humidity", "light"];
+  const typeToSensor = {};
+
+  for (const sensor of sensors) {
+    typeToSensor[sensor.type] = sensor.sensor_id;
+  }
+
+  for (const type of types) {
+    const sensorId = typeToSensor[type];
+    let values = [], labels = [];
+
+    if (sensorId) {
+      try {
+        const res = await fetch(`${apiBase}/sensor/${sensorId}/history`);
+        const data = await res.json();
+        labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+        values = data.map(d => d.value);
+      } catch (err) {
+        console.error("Fetch failed:", err);
+      }
+    }
+
+    if (values.length === 0) {
+      const now = new Date();
+      for (let i = 9; i >= 0; i--) {
+        const t = new Date(now.getTime() - i * 60000);
+        labels.push(t.toLocaleTimeString());
+        values.push(0);
+      }
+    }
+
+    const section = document.createElement("section");
+    const title = document.createElement("h3");
+    title.textContent = `${type.toUpperCase()} (${sensorId || "N/A"})`;
+    const canvas = document.createElement("canvas");
+
+    section.appendChild(title);
+    section.appendChild(canvas);
+    container.appendChild(section);
+
+    const ctx = canvas.getContext("2d");
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: `${type} (${sensorId || "không có"})`,
+          data: values,
+          borderColor: 'blue'
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: false } }
+      }
+    });
+
+    if (sensorId) {
+      activeCharts[sensorId] = chart;
+    }
+  }
+}
+
+fetchRoomSensorMappings();
   </script>
 </body>
 </html>
