@@ -3,368 +3,606 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sensor Dashboard</title>
+  <title>Sensor Gateway Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
   <style>
+    /* --- THEME VARIABLES --- */
+    :root {
+      --primary-color: #007bff;
+      --secondary-color: #6c757d;
+      --background-color: #f4f7fc;
+      --card-background-color: #ffffff;
+      --text-color: #333;
+      --text-muted-color: #6c757d;
+      --border-color: #e9ecef;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --border-radius: 8px;
+    }
+
+    body.dark-mode {
+      --primary-color: #0d6efd;
+      --secondary-color: #6c757d;
+      --background-color: #121212;
+      --card-background-color: #1e1e1e;
+      --text-color: #e0e0e0;
+      --text-muted-color: #888;
+      --border-color: #333;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* --- LAYOUT & BASE STYLES --- */
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Roboto', sans-serif;
       margin: 0;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+      /* === GRID LAYOUT FIX === */
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 100vh;
+    }
+
+    /* --- SIDEBAR --- */
+    .sidebar {
+      background: var(--card-background-color);
+      display: flex;
+      flex-direction: column;
       padding: 20px;
-      background-color: #f9f9f9;
+      box-shadow: var(--shadow);
+      transition: background-color 0.3s;
+      /* Make sidebar sticky within the grid cell */
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      box-sizing: border-box;
     }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    .sidebar h1 {
+      font-size: 24px;
+      color: var(--primary-color);
+      text-align: center;
+      margin-bottom: 30px;
     }
-    canvas {
-      max-width: 100%;
-      height: 300px !important;
+
+    .sidebar .nav-group {
+      margin-bottom: 25px;
     }
-    label {
-      display: inline-block;
-      margin: 5px 10px 5px 0;
-    }
-    input, select, button {
-      padding: 6px 10px;
-      margin: 5px 5px 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    button {
-      background-color: #007bff;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    #latest {
-      font-weight: bold;
-      margin: 10px 0;
+
+    .sidebar .nav-group-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-muted-color);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
     }
     
-    .navbar {
-  background-color: #007bff;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: flex-start;
-}
+    .sidebar .room-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
 
-.navbar a {
-  color: white;
-  margin-right: 20px;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 14px;
-}
+    .sidebar .nav-item,
+    .sidebar .room-item {
+        display: block;
+        padding: 12px 15px;
+        border-radius: var(--border-radius);
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 500;
+        margin-bottom: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s, color 0.3s;
+    }
 
-.navbar a:hover {
-  text-decoration: underline;
-}
+    .sidebar .nav-item:hover,
+    .sidebar .room-item:hover {
+        background-color: rgba(128, 128, 128, 0.1);
+    }
+
+    .sidebar .room-item.active {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .sidebar label {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .sidebar input[type="datetime-local"],
+    .sidebar input[type="number"],
+    .sidebar button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      box-sizing: border-box;
+      background-color: var(--card-background-color);
+      color: var(--text-color);
+    }
+    
+    .sidebar button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+
+    .sidebar button:hover {
+      opacity: 0.9;
+    }
+    
+    .sidebar button.secondary {
+        background-color: var(--secondary-color);
+    }
+    
+    .sidebar .auto-update-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+    .switch input { display: none; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 28px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary-color); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    .sidebar-footer {
+        margin-top: auto;
+    }
+    .sidebar-footer .nav-item i {
+        margin-right: 10px;
+    }
+
+
+    /* --- MAIN CONTENT --- */
+    .main-content {
+      padding: 25px;
+      overflow-y: auto; /* Allow main content to scroll */
+    }
+
+    .main-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+
+    .main-header h2 {
+      font-size: 26px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    .kpi-card, .chart-card {
+        background-color: var(--card-background-color);
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        transition: background-color 0.3s;
+    }
+    
+    .kpi-card {
+        display: flex;
+        align-items: center;
+    }
+
+    .kpi-card .icon {
+        font-size: 28px;
+        padding: 15px;
+        border-radius: 50%;
+        margin-right: 20px;
+        color: white;
+    }
+    .kpi-card.temperature .icon { background-color: #ff6384; }
+    .kpi-card.humidity .icon { background-color: #36a2eb; }
+    .kpi-card.light .icon { background-color: #ffce56; }
+
+    .kpi-card .info h3 {
+        margin: 0 0 5px 0;
+        font-size: 16px;
+        color: var(--text-muted-color);
+    }
+    
+    .kpi-card .info p {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-color);
+    }
+    
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 1200px) {
+        .chart-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .chart-grid.item-count-3 .chart-card:first-child {
+            grid-column: span 2;
+        }
+    }
+
+    .chart-card h3 {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    
+    canvas {
+        max-width: 100%;
+        height: 300px !important;
+    }
 
   </style>
 </head>
 <body>
-  <div class="container">
 
-      <div class="navbar">
-      <a href="index.html">Dashboard</a>
-      <a href="admin.html">Advanced Config</a>
+  <aside class="sidebar">
+    <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Management</div>
+      <div id="roomList" class="room-list"></div>
     </div>
-  
-    <h2>Sensor Temperature Dashboard</h2>
-
-    <label for="roomSelect">Chọn Phòng:</label>
-    <select id="roomSelect" onchange="onRoomChange()"></select>
-    <br>
-
-    <label for="fromTime">From:</label>
-    <input type="datetime-local" id="fromTime" />
-    <label for="toTime">To:</label>
-    <input type="datetime-local" id="toTime" />
-    <button onclick="updateChart()">Load Range</button>
-    <button onclick="loadCurrent()">Show Latest</button>
-    <br>
-
-    <label for="intervalInput">Update Interval (sec):</label>
-    <input type="number" id="intervalInput" value="5" min="1" />
-    <button onclick="updateNow()">Update Now</button>
-    <button onclick="toggleAutoUpdate()" id="toggleBtn">Stop Auto-Update</button>
-    <br>
-
-    <div id="latest"></div>
-    <div id="sensorCharts"></div>
-
-    <br>
-    <button onclick="playAnimation()">Play Animation</button>
-    <button onclick="pauseAnimation()">Pause</button>
-    <button onclick="resetAnimation()">Reset</button>
-    <label for="speedSlider">Speed:</label>
-    <input type="range" id="speedSlider" min="100" max="2000" step="100" value="1000" />
     
+    <div class="nav-group">
+        <div class="nav-group-title">Filter by Time</div>
+        <label for="fromTime">From:</label>
+        <input type="datetime-local" id="fromTime" />
+        <label for="toTime">To:</label>
+        <input type="datetime-local" id="toTime" />
+        <button onclick="updateChart()">Load Data</button>
+        <button onclick="loadCurrent()" class="secondary">Last 15 Minutes</button>
+    </div>
 
-  
-  </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Settings</div>
+      <label for="intervalInput">Interval (seconds):</label>
+      <input type="number" id="intervalInput" value="5" min="1" />
+      <div class="auto-update-toggle">
+        <span>Auto-Update</span>
+        <label class="switch">
+          <input type="checkbox" id="autoUpdateToggle" onchange="toggleAutoUpdate(this.checked)" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    
+    <div class="sidebar-footer">
+        <a href="admin.html" class="nav-item"><i class="fas fa-cog"></i> Advanced Config</a>
+        <div class="nav-item" id="darkModeToggle">
+            <i class="fas fa-moon"></i>
+            <span>Dark Mode</span>
+        </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="main-header">
+      <h2 id="roomTitle">Select a room to begin</h2>
+    </header>
+
+    <div class="kpi-grid">
+        <div class="kpi-card temperature">
+            <div class="icon"><i class="fas fa-thermometer-half"></i></div>
+            <div class="info">
+                <h3>Temperature</h3>
+                <p id="latestTemp">-- C</p>
+            </div>
+        </div>
+        <div class="kpi-card humidity">
+            <div class="icon"><i class="fas fa-tint"></i></div>
+            <div class="info">
+                <h3>Humidity</h3>
+                <p id="latestHumidity">-- %</p>
+            </div>
+        </div>
+        <div class="kpi-card light">
+            <div class="icon"><i class="fas fa-sun"></i></div>
+            <div class="info">
+                <h3>Light</h3>
+                <p id="latestLight">-- lux</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-grid" id="sensorCharts"></div>
+  </main>
 
   <script>
-    let sensorMapping = {}; // sensor_id => { room_id, type }
-    let roomToSensors = {}; // room_id => [{sensor_id, type}]
+    let sensorMapping = {};
+    let roomToSensors = {};
     const apiBase = `${location.protocol}//${location.hostname}:5000`;
-    let chart, autoUpdate = true, updateTimer, currentSensorId = null, fullData = [], animationTimer, animationIndex = 0;
+    let autoUpdateInterval;
     let currentRoomId = null;
-    let currentSensors = [];
-    let activeCharts = {}; // sensorId => Chart instance
-    let updateInterval = null;
+    let activeCharts = {};
 
-
-
-    async function fetchRoomSensorMappings() {
-  const mapRes = await fetch(`${apiBase}/room-sensors-map`);
-  sensorMapping = await mapRes.json();
-
-  roomToSensors = {};
-  for (const [sid, info] of Object.entries(sensorMapping)) {
-    const room = info.room_id;
-    if (!roomToSensors[room]) roomToSensors[room] = [];
-    roomToSensors[room].push({ sensor_id: sid, type: info.type });
-  }
-
-  const roomRes = await fetch(`${apiBase}/rooms`);
-  const rooms = await roomRes.json();
-  const select = document.getElementById("roomSelect");
-  select.innerHTML = "";
-  rooms.forEach(r => {
-    const opt = document.createElement("option");
-    opt.value = r;
-    opt.text = `Phòng ${r}`;
-    select.appendChild(opt);
-  });
-  onRoomChange();
-  }
-
-    function onSensorChange() {
-      currentSensorId = document.getElementById("sensorSelect").value;
-      updateChart();
-    }
-
-async function updateChart() {
-  if (!currentSensors || currentSensors.length === 0) return;
-
-  const from = document.getElementById("fromTime").value;
-  const to = document.getElementById("toTime").value;
-
-  for (const sensor of currentSensors) {
-    const sensorId = sensor.sensor_id;
-    let url = `${apiBase}/sensor/${sensorId}/history`;
-
-    if (from && to) {
-      url += `?from=${Math.floor(new Date(from).getTime() / 1000)}&to=${Math.floor(new Date(to).getTime() / 1000)}`;
-    }
-
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-      const values = data.map(d => d.value);
-
-      const chart = activeCharts[sensorId];
-      if (chart) {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.update();
-      }
-    } catch (err) {
-      console.error(`UpdateChart error sensor ${sensorId}:`, err);
-    }
-  }
-}
-
-async function showLast() {
-  if (!currentSensors || currentSensors.length === 0) return;
-
-  const now = Math.floor(Date.now() / 1000);
-  const fromTime = now - 15 * 60;
-
-  for (const sensor of currentSensors) {
-    const sensorId = sensor.sensor_id;
-
-    try {
-      const res = await fetch(`${apiBase}/sensor/${sensorId}/range?from=${fromTime}&to=${now}`);
-      const data = await res.json();
-
-      if (!Array.isArray(data) || data.length === 0) continue;
-
-      const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-      const values = data.map(d => d.value);
-
-      const chart = activeCharts[sensorId];
-      if (chart) {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.update();
-      }
-    } catch (err) {
-      console.error(`Error loading 15-minute data for sensor ${sensorId}:`, err);
-    }
-  }
-}
-
-function loadCurrent() {
-  // 1. Gọi ngay 1 lần để hiển thị dữ liệu 15 phút gần nhất
-  showLast();
-
-  // 2. Dừng mọi auto-update cũ nếu có
-  clearInterval(updateTimer);
-
-  // 3. Lấy giá trị interval từ input (giây → mili giây)
-  const interval = parseInt(document.getElementById("intervalInput")?.value || "5") * 1000;
-
-  // 4. Lặp lại showLast sau mỗi interval
-  updateTimer = setInterval(showLast, interval);
-
-  // 5. Cập nhật trạng thái và giao diện
-  autoUpdate = true;
-  document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
-}
-
-    async function updateLatest() {
-      const res = await fetch(`${apiBase}/sensor/${currentSensorId}/latest`);
-      const { sensor_value, timestamp } = await res.json();
-      document.getElementById("latest").textContent = `Temperature: ${sensor_value} Celsius, Last update: ${new Date(timestamp * 1000).toLocaleTimeString()}`;
-    }
-
-    function toggleAutoUpdate() {
-      autoUpdate = !autoUpdate;
-      document.getElementById("toggleBtn").innerText = autoUpdate ? "Stop Auto-Update" : "Start Auto-Update";
-      if (autoUpdate) startAutoUpdate();
-      else clearInterval(updateInterval);
-    }
-
-function startAutoUpdate() {
-  clearInterval(updateTimer);
-  const interval = parseInt(document.getElementById("intervalInput").value) * 1000;
-  updateTimer = setInterval(updateChart, interval);
-}
-
-function updateNow() {
-  updateChart();
-  autoUpdate = true;
-  document.getElementById("toggleBtn").innerText = "Stop Auto-Update";
-  startAutoUpdate();
-}
-
-    function playAnimation() {
-      if (!fullData.length) return;
-      clearInterval(animationTimer);
-      animationIndex = 0;
-      const speed = parseInt(document.getElementById("speedSlider").value);
-      animationTimer = setInterval(() => {
-        const slice = fullData.slice(0, animationIndex + 1);
-        chart.data.labels = slice.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        chart.data.datasets[0].data = slice.map(d => d.value);
-        chart.update();
-        animationIndex++;
-        if (animationIndex >= fullData.length) clearInterval(animationTimer);
-      }, speed);
-    }
-
-    function pauseAnimation() { clearInterval(animationTimer); }
-    function resetAnimation() {
-      pauseAnimation();
-      animationIndex = 0;
-      chart.data.labels = [];
-      chart.data.datasets[0].data = [];
-      chart.update();
-    }
-
-    function onRoomChange() {
-  const roomId = document.getElementById("roomSelect").value;
-  const sensors = roomToSensors[roomId];
-  if (!sensors || sensors.length === 0) return;
-  drawChartsForRoom(roomId, sensors);
-}
-
-async function drawChartsForRoom(roomId, sensors) {
-  const container = document.getElementById("sensorCharts");
-  container.innerHTML = ""; // clear old charts
-
-  currentRoomId = roomId;
-  currentSensors = sensors;
-  activeCharts = {};
-  if (updateInterval) clearInterval(updateInterval);
-
-  const types = ["temperature", "humidity", "light"];
-  const typeToSensor = {};
-
-  for (const sensor of sensors) {
-    typeToSensor[sensor.type] = sensor.sensor_id;
-  }
-
-  for (const type of types) {
-    const sensorId = typeToSensor[type];
-    let values = [], labels = [];
-
-    if (sensorId) {
-      try {
-        const res = await fetch(`${apiBase}/sensor/${sensorId}/history`);
-        const data = await res.json();
-        labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
-        values = data.map(d => d.value);
-      } catch (err) {
-        console.error("Fetch failed:", err);
-      }
-    }
-
-    if (values.length === 0) {
-      const now = new Date();
-      for (let i = 9; i >= 0; i--) {
-        const t = new Date(now.getTime() - i * 60000);
-        labels.push(t.toLocaleTimeString());
-        values.push(0);
-      }
-    }
-
-    const section = document.createElement("section");
-    const title = document.createElement("h3");
-    title.textContent = `${type.toUpperCase()} (${sensorId || "N/A"})`;
-    const canvas = document.createElement("canvas");
-
-    section.appendChild(title);
-    section.appendChild(canvas);
-    container.appendChild(section);
-
-    const ctx = canvas.getContext("2d");
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: `${type} (${sensorId || "không có"})`,
-          data: values,
-          borderColor: 'blue'
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: false } }
-      }
+    // --- DARK MODE LOGIC ---
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    darkModeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        // Save preference to localStorage
+        if (document.body.classList.contains('dark-mode')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+        // Redraw charts with new theme colors
+        if(currentRoomId) {
+            drawChartsForRoom(currentRoomId, roomToSensors[currentRoomId]);
+        }
     });
 
-    if (sensorId) {
-      activeCharts[sensorId] = chart;
+    // Function to apply saved theme on page load
+    function applySavedTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
     }
-  }
-}
 
-fetchRoomSensorMappings();
+
+    // --- ORIGINAL APP LOGIC ---
+    async function fetchRoomSensorMappings() {
+        try {
+            const mapRes = await fetch(`${apiBase}/room-sensors-map`);
+            sensorMapping = await mapRes.json();
+
+            roomToSensors = {};
+            for (const [sid, info] of Object.entries(sensorMapping)) {
+                const room = info.room_id;
+                if (!roomToSensors[room]) roomToSensors[room] = [];
+                roomToSensors[room].push({ sensor_id: sid, type: info.type });
+            }
+
+            const roomRes = await fetch(`${apiBase}/rooms`);
+            const rooms = await roomRes.json();
+            const roomList = document.getElementById("roomList");
+            roomList.innerHTML = "";
+            
+            rooms.forEach(r => {
+                const roomLink = document.createElement("a");
+                roomLink.href = "#";
+                roomLink.className = "room-item";
+                roomLink.textContent = `Room ${r}`;
+                roomLink.onclick = (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.room-item').forEach(item => item.classList.remove('active'));
+                    roomLink.classList.add('active');
+                    drawChartsForRoom(r, roomToSensors[r]);
+                };
+                roomList.appendChild(roomLink);
+            });
+            
+            if (roomList.firstChild) {
+                roomList.firstChild.click();
+            }
+        } catch (error) {
+            console.error("Failed to fetch initial data:", error);
+            document.getElementById("roomTitle").textContent = "Error: Could not connect to API.";
+        }
+    }
+
+    async function drawChartsForRoom(roomId, sensors) {
+        currentRoomId = roomId;
+        document.getElementById("roomTitle").textContent = `Sensor Data - Room ${roomId}`;
+        const container = document.getElementById("sensorCharts");
+        container.innerHTML = "";
+        Object.values(activeCharts).forEach(chart => chart.destroy()); // Destroy old charts
+        activeCharts = {};
+
+        // Reset KPIs
+        document.getElementById("latestTemp").textContent = '-- C';
+        document.getElementById("latestHumidity").textContent = '-- %';
+        document.getElementById("latestLight").textContent = '-- lux';
+
+        const types = ["temperature", "humidity", "light"];
+        const typeToSensor = {};
+        sensors.forEach(s => { typeToSensor[s.type] = s.sensor_id; });
+
+        container.className = `chart-grid item-count-${sensors.length}`;
+
+        // Get current theme for chart colors
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        const textColor = isDarkMode ? '#e0e0e0' : '#333';
+
+        for (const type of types) {
+            const sensorId = typeToSensor[type];
+            if (!sensorId) continue;
+
+            const card = document.createElement("div");
+            card.className = "chart-card";
+            const title = document.createElement("h3");
+            title.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} (${sensorId})`;
+            const canvas = document.createElement("canvas");
+            card.appendChild(title);
+            card.appendChild(canvas);
+            container.appendChild(card);
+            
+            try {
+                const res = await fetch(`${apiBase}/sensor/${sensorId}/history`);
+                const data = await res.json();
+                const labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                const values = data.map(d => d.value);
+
+                if (values.length > 0) {
+                    const latestValue = values[values.length - 1];
+                    if (type === 'temperature') document.getElementById("latestTemp").textContent = `${latestValue} C`;
+                    if (type === 'humidity') document.getElementById("latestHumidity").textContent = `${latestValue} %`;
+                    if (type === 'light') document.getElementById("latestLight").textContent = `${latestValue} lux`;
+                }
+
+                const ctx = canvas.getContext("2d");
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: type,
+                            data: values,
+                            borderColor: getChartColor(type),
+                            backgroundColor: getChartGradient(ctx, getChartColor(type)),
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointBackgroundColor: getChartColor(type),
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { 
+                            y: { 
+                                beginAtZero: false,
+                                grid: { color: gridColor },
+                                ticks: { color: textColor }
+                            },
+                            x: {
+                                grid: { color: gridColor },
+                                ticks: { color: textColor }
+                            }
+                        }
+                    }
+                });
+                activeCharts[sensorId] = chart;
+            } catch (err) {
+                console.error(`Fetch failed for ${sensorId}:`, err);
+                title.textContent += " - Error loading data";
+            }
+        }
+        
+        setupAutoUpdate();
+    }
+    
+    function getChartColor(type) {
+        if (type === 'temperature') return '#ff6384';
+        if (type === 'humidity') return '#36a2eb';
+        if (type === 'light') return '#ffce56';
+        return '#6c757d';
+    }
+
+    function getChartGradient(ctx, color) {
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, `${color}80`);
+        gradient.addColorStop(1, `${color}00`);
+        return gradient;
+    }
+    
+    async function updateAllCharts() {
+        if (!currentRoomId || Object.keys(activeCharts).length === 0) return;
+
+        const fromInput = document.getElementById("fromTime").value;
+        const toInput = document.getElementById("toTime").value;
+        
+        let urlSuffix = '';
+        if (fromInput && toInput) {
+             urlSuffix = `?from=${Math.floor(new Date(fromInput).getTime() / 1000)}&to=${Math.floor(new Date(toInput).getTime() / 1000)}`;
+        } else {
+             urlSuffix = ''; // Fetch latest if no range
+        }
+
+        for (const sensorId in activeCharts) {
+            const chart = activeCharts[sensorId];
+            try {
+                const res = await fetch(`${apiBase}/sensor/${sensorId}/history${urlSuffix}`);
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    chart.data.labels = data.map(d => new Date(d.timestamp * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                    chart.data.datasets[0].data = data.map(d => d.value);
+                    chart.update('none'); // 'none' for no animation
+
+                    const latestValue = data[data.length-1].value;
+                    const sensorType = sensorMapping[sensorId].type;
+                    if (sensorType === 'temperature') document.getElementById("latestTemp").textContent = `${latestValue} C`;
+                    if (sensorType === 'humidity') document.getElementById("latestHumidity").textContent = `${latestValue} %`;
+                    if (sensorType === 'light') document.getElementById("latestLight").textContent = `${latestValue} lux`;
+                }
+            } catch (err) {
+                console.error(`Update failed for ${sensorId}:`, err);
+            }
+        }
+    }
+    
+    function updateChart() {
+        updateAllCharts();
+    }
+    
+    function loadCurrent() {
+        document.getElementById('fromTime').value = '';
+        document.getElementById('toTime').value = '';
+        drawChartsForRoom(currentRoomId, roomToSensors[currentRoomId]);
+    }
+    
+    function toggleAutoUpdate(isChecked) {
+        if (isChecked) {
+            setupAutoUpdate();
+        } else {
+            clearInterval(autoUpdateInterval);
+        }
+    }
+    
+    function setupAutoUpdate() {
+        clearInterval(autoUpdateInterval);
+        const toggle = document.getElementById('autoUpdateToggle');
+        if (toggle.checked) {
+            const intervalSeconds = parseInt(document.getElementById('intervalInput').value) || 5;
+            autoUpdateInterval = setInterval(updateAllCharts, intervalSeconds * 1000);
+        }
+    }
+
+    // --- INITIALIZATION ---
+    applySavedTheme();
+    fetchRoomSensorMappings();
+
   </script>
 </body>
 </html>
