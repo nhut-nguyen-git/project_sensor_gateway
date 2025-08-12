@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sensor Gateway</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* CSS riêng cho trang login */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            grid-template-columns: 1fr; /* Ghi đè grid layout */
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+        .login-container h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--primary-color);
+        }
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            background-color: var(--card-background-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            border-radius: var(--border-radius);
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #error-message {
+            color: #ff6384;
+            text-align: center;
+            margin-top: 15px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container content-card">
+        <h1>Sensor Gateway</h1>
+        <form id="loginForm" class="login-form">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+        <p id="error-message"></p>
+    </div>
+
+    <script src="js/login.js"></script>
+    
+    <div style="position: fixed; bottom: 10px; left: 10px; background-color: #333; color: white; padding: 8px 12px; border-radius: 5px; font-size: 12px;">
+    Public URL: <a href="{{ g.ngrok_url }}" target="_blank" style="color: #4CAF50;">{{ g.ngrok_url }}</a>
+</div>
+
+<script src="js/login.js"></script>
+
+</body>
+</html>
