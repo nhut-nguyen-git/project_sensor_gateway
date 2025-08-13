@@ -24,13 +24,20 @@
     </div>
     
     <div class="nav-group">
-        <div class="nav-group-title">Filter by Time</div>
-        <label for="fromTime">From:</label>
-        <input type="datetime-local" id="fromTime" />
-        <label for="toTime">To:</label>
-        <input type="datetime-local" id="toTime" />
-        <button onclick="updateChart()">Load Data</button>
-        <button onclick="loadCurrent()" class="secondary">Last 15 Minutes</button>
+      <div class="nav-group-title">View Mode</div>
+      <button onclick="loadCurrent()" class="secondary" id="realtimeBtn">Real-time</button>
+      
+      <button onclick="viewDailyChart()" id="dailyBtn">Daily Trend (Line)</button>
+      <div id="daily-filter" style="display:none; margin-top: 10px;">
+          <label for="viewDate">Select Day:</label>
+          <input type="date" id="viewDate" onchange="viewDailyChart()">
+      </div>
+  
+      <button onclick="viewMonthlyChart()" id="monthlyBtn">Monthly Min/Max</button>
+      <div id="monthly-filter" style="display:none; margin-top: 10px;">
+          <label for="viewMonth">Select Month:</label>
+          <input type="month" id="viewMonth" onchange="viewMonthlyChart()">
+      </div>
     </div>
 
     <div class="nav-group">
@@ -62,33 +69,40 @@
     </header>
 
     <div class="kpi-grid">
-        <div class="kpi-card temperature">
-            <div class="icon"><i class="fas fa-thermometer-half"></i></div>
-            <div class="info">
-                <h3>Temperature</h3>
-                <p id="latestTemp">-- C</p>
-            </div>
-        </div>
-        <div class="kpi-card humidity">
-            <div class="icon"><i class="fas fa-tint"></i></div>
-            <div class="info">
-                <h3>Humidity</h3>
-                <p id="latestHumidity">-- %</p>
-            </div>
-        </div>
-        <div class="kpi-card light">
-            <div class="icon"><i class="fas fa-sun"></i></div>
-            <div class="info">
-                <h3>Light</h3>
-                <p id="latestLight">-- lux</p>
-            </div>
-        </div>
-    </div>
+      <div class="kpi-card temperature">
+          <div class="icon"><i class="fas fa-thermometer-half"></i></div>
+          <div class="info">
+              <h3>Temperature</h3>
+              <p id="latestTemp">-- C</p>
+              <small id="latestTempTime" class="kpi-timestamp">Last update: --</small>
+          </div>
+      </div>
+      <div class="kpi-card humidity">
+          <div class="icon"><i class="fas fa-tint"></i></div>
+          <div class="info">
+              <h3>Humidity</h3>
+              <p id="latestHumidity">-- %</p>
+              <small id="latestHumidityTime" class="kpi-timestamp">Last update: --</small>
+          </div>
+      </div>
+      <div class="kpi-card light">
+          <div class="icon"><i class="fas fa-sun"></i></div>
+          <div class="info">
+              <h3>Light</h3>
+              <p id="latestLight">-- lux</p>
+              <small id="latestLightTime" class="kpi-timestamp">Last update: --</small>
+          </div>
+      </div>
+  </div>
 
     <div class="chart-grid" id="sensorCharts"></div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
   <script src="js/app.js"></script>
   <script src="js/dashboard.js"></script>
 </body>

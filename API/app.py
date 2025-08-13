@@ -10,8 +10,7 @@ import subprocess
 import re
 import math # Thêm thư viện math
 
-from pyngrok import ngrok
-from flask import g
+
 # ============================================================================
 # 1. C?U H�NH V� C�C BI?N TO�N C?C
 # ============================================================================
@@ -302,6 +301,62 @@ def root():
     # Trang g?c lu�n l� trang dang nh?p
     return send_from_directory(WEB_DIR, 'login.html')
 
+# ============================================================================
+# API NÂNG CAO: LẤY DỮ LIỆU TỔNG HỢP (MIN/MAX)
+# ============================================================================
+@app.route('/sensor/<int:sensor_id>/aggregated')
+def get_aggregated_data(sensor_id):
+    """
+    API để lấy dữ liệu min/max theo giờ, ngày hoặc tháng.
+    Params:
+    - period: 'hourly', 'daily', 'monthly'
+    - from: timestamp bắt đầu (unix)
+    - to: timestamp kết thúc (unix)
+    """
+    period = request.args.get('period', 'daily') # Mặc định là theo ngày
+    from_ts = request.args.get('from', 0, type=int)
+    to_ts = request.args.get('to', int(time.time()), type=int)
+
+    # Xác định định dạng cho hàm strftime của SQLite dựa trên period
+    if period == 'hourly':
+        # Nhóm theo giờ: YYYY-MM-DD HH:00
+        date_format = '%Y-%m-%d %H:00'
+    elif period == 'monthly':
+        # Nhóm theo tháng: YYYY-MM
+        date_format = '%Y-%m'
+    else: # Mặc định là 'daily'
+        # Nhóm theo ngày: YYYY-MM-DD
+        date_format = '%Y-%m-%d'
+
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    
+    query = f"""
+        SELECT
+            strftime('{date_format}', timestamp, 'unixepoch', 'localtime') as period_group,
+            MIN(sensor_value),
+            MAX(sensor_value)
+        FROM SensorData
+        WHERE
+            sensor_id = ? AND
+            timestamp BETWEEN ? AND ?
+        GROUP BY period_group
+        ORDER BY period_group ASC;
+    """
+    
+    cur.execute(query, (sensor_id, from_ts, to_ts))
+    rows = cur.fetchall()
+    conn.close()
+
+    # Định dạng lại dữ liệu trả về cho Chart.js
+    response_data = {
+        "labels": [row[0] for row in rows],
+        "min_values": [row[1] for row in rows],
+        "max_values": [row[2] for row in rows]
+    }
+    
+    return jsonify(response_data)
+    
 # Flask s? t? d?ng ph?c v? c�c file kh�c trong thu m?c static_folder (WEB_DIR)
 # V� d?: /index.html, /admin.html, /css/style.css s? du?c t? d?ng t�m th?y.
 # Kh�ng c?n th�m route cho ch�ng.
@@ -310,33 +365,5 @@ def root():
 # 7. KH?I CH?Y SERVER
 # ============================================================================
 
-import os # Thêm thư viện os
-from pyngrok import ngrok
-from flask import g
-
-# ... (toàn bộ code ứng dụng Flask của bạn ở trên) ...
-
-# Biến toàn cục để lưu URL của ngrok
-ngrok_url = ""
-
-@app.before_request
-def store_ngrok_url():
-    g.ngrok_url = ngrok_url
-
 if __name__ == '__main__':
-    # --- Đọc authtoken từ biến môi trường ---
-    authtoken = os.getenv("NGROK_AUTHTOKEN")
-    if authtoken:
-        ngrok.set_auth_token(authtoken)
-    else:
-        print(" * Cảnh báo: Biến môi trường NGROK_AUTHTOKEN chưa được thiết lập. Tunnel có thể bị giới hạn thời gian.")
-    # ------------------------------------------
-
-    # Mở một tunnel ngrok tới port 5000
-    tunnel = ngrok.connect(5000, "http")
-    ngrok_url = tunnel.public_url
-    
-    print(" * Ngrok tunnel is active at:", ngrok_url)
-
-    # Chạy ứng dụng Flask
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=5000)
